@@ -3,14 +3,118 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Website</title>
+    <title>Registrierung</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 50px; background: #f4f4f4; }
-        h1 { color: #333; }
+        body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f4f4f9; }
+        .card { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 300px; text-align: center; }
+        .step { display: none; }
+        .step.active { display: block; }
+        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        button:hover { background: #0056b3; }
+        .error { color: red; font-size: 14px; margin-top: 5px; }
+        .success { color: green; font-size: 24px; font-weight: bold; }
     </style>
 </head>
 <body>
-    <h1>Text</h1>
-    <p>More Text</p>
+
+<div class="card">
+    <!-- Schritt 1: E-Mail -->
+    <div id="step1" class="step active">
+        <h2>Anmeldung</h2>
+        <input type="email" id="email" placeholder="E-Mail-Adresse eingeben" required>
+        <button onclick="sendEmail()">Code anfordern</button>
+        <div id="error1" class="error"></div>
+    </div>
+
+    <!-- Schritt 2: Code -->
+    <div id="step2" class="step">
+        <h2>Code eingeben</h2>
+        <p>Wir haben einen Code an deine E-Mail gesendet.</p>
+        <input type="text" id="code" placeholder="4-stelliger Code" maxlength="4">
+        <button onclick="verifyCode()">Code bestätigen</button>
+        <div id="error2" class="error"></div>
+    </div>
+
+    <!-- Schritt 3: Benutzername -->
+    <div id="step3" class="step">
+        <h2>Benutzername</h2>
+        <input type="text" id="username" placeholder="Dein Wunsch-Benutzername">
+        <button onclick="saveUsername()">Bestätigen</button>
+        <div id="error3" class="error"></div>
+    </div>
+
+    <!-- Schritt 4: Erfolg -->
+    <div id="step4" class="step">
+        <div class="success">Erfolgreich!</div>
+    </div>
+</div>
+
+<script>
+    let userEmail = "";
+
+    function showStep(stepNum) {
+        document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+        document.getElementById(`step${stepNum}`).classList.add('active');
+    }
+
+    async function sendEmail() {
+        userEmail = document.getElementById('email').value;
+        const errorDiv = document.getElementById('error1');
+        errorDiv.innerText = "";
+
+        const response = await fetch('/api/send-code', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: userEmail })
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+            showStep(2);
+        } else {
+            errorDiv.innerText = data.error;
+        }
+    }
+
+    async function verifyCode() {
+        const code = document.getElementById('code').value;
+        const errorDiv = document.getElementById('error2');
+        errorDiv.innerText = "";
+
+        const response = await fetch('/api/verify-code', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: userEmail, code: code })
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+            showStep(3);
+        } else {
+            errorDiv.innerText = data.error;
+        }
+    }
+
+    async function saveUsername() {
+        const username = document.getElementById('username').value;
+        const errorDiv = document.getElementById('error3');
+        errorDiv.innerText = "";
+
+        const response = await fetch('/api/register-username', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: userEmail, username: username })
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+            showStep(4);
+        } else {
+            errorDiv.innerText = data.error;
+        }
+    }
+</script>
+
 </body>
 </html>
